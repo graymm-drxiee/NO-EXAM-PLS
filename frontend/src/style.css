@@ -1,0 +1,28 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #24212a;
+  background: #f7f3f5;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; }
+
+.shell { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.brand { font-weight: 800; letter-spacing: .08em; }
+nav { display: flex; gap: 20px; }
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.card { margin: 12vh auto 0; max-width: 620px; padding: 48px; background: white; border-radius: 20px; box-shadow: 0 16px 48px #30202a12; }
+.eyebrow { color: #7d4260; font-size: .75rem; font-weight: 700; letter-spacing: .12em; }
+h1 { margin: 14px 0; font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.05; }
+.card > p:not(.eyebrow) { color: #655f68; line-height: 1.7; }
+.button { display: inline-block; margin-top: 16px; padding: 12px 20px; color: white; background: #773a5c; border-radius: 9px; }
+footer { margin-top: 48px; color: #77717a; font-size: .85rem; text-align: center; }
+
+@media (max-width: 560px) {
+  .shell { padding: 20px 16px; }
+  .card { margin-top: 9vh; padding: 30px 24px; }
+}
