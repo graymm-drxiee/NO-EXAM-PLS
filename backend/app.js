@@ -10,9 +10,25 @@ const authRoutes = require("./routes/authRoutes");
 const laptopRoutes = require("./routes/laptopRoutes");
 const loanRoutes = require("./routes/loanRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const connectDB = require("./config/db");
+
+let ready;
+
+// Vercel imports this module directly, so no server.js startup hook runs.
+function init() {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    throw new Error("JWT_SECRET must be set to a random value of at least 32 characters.");
+  }
+  return (ready ??= connectDB());
+}
 
 function createApp() {
   const app = express();
+
+  // Connect before handling any request (serverless has no startup hook).
+  app.use((_req, _res, next) => {
+    init().then(() => next(), next);
+  });
 
   // Required for correct client IPs (and rate limiting) behind a proxy.
   if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
@@ -24,8 +40,10 @@ function createApp() {
 
   app.use(
     cors({
+      // "*" must be honoured explicitly: the deployed SPA sends an Origin header
+      // for same-origin writes, and a literal match on "*" would reject them.
       origin: (origin, callback) =>
-        !origin || allowedOrigins.includes(origin)
+        !origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)
           ? callback(null, true)
           : callback(Object.assign(new Error("Origin not allowed by CORS"), { status: 403 })),
       credentials: true,
@@ -101,11 +119,8 @@ function createApp() {
   return app;
 }
 
-module.exports = { createApp };
-
-if (require.main === module) {
-  require("./server").startServer().catch((err) => {
-    console.error("Startup failed:", err.message);
-    process.exitCode = 1;
-  });
-}
+// Vercel's Express service picks up app.js as the entrypoint and expects the
+// module itself to be the request handler (not a named export).
+module.exports = createApp();
+module.exports.createApp = createApp;
+module.exports.init = init;
