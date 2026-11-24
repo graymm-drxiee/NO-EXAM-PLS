@@ -7,5 +7,7 @@ const router = express.Router();
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 router.get("/me", auth, authController.me);
+router.patch("/me", auth, authController.updateMe);
+router.patch("/password", auth, authController.changePassword);
 
 module.exports = router;

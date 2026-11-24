@@ -7,6 +7,7 @@ const bcrypt = require("bcrypt");
 const User = require("./models/User");
 const Laptop = require("./models/Laptop");
 const Loan = require("./models/Loan");
+const Setting = require("./models/Setting");
 
 function promptSecret(label, envName) {
   const input = process.stdin;
@@ -61,8 +62,14 @@ async function seedPassword(envName, label) {
   return password;
 }
 
-const H = 36e5;
-const at = (hours) => new Date(Date.now() + hours * H);
+// One-day loans run inside class hours on weekdays; demo dates follow the same rule.
+function classDay(offset, hour) {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  d.setDate(d.getDate() + offset);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+  return d;
+}
 
 const STUDENTS = [
   { name: "Maria Santos", studentNo: "2023-01482", program: "BS Computer Science", address: "Brgy. Sample, Tabaco City, Albay", contact: "09171234567", year: "3rd Year", block: "A" },
@@ -80,13 +87,14 @@ const LAPTOPS = [
 ];
 
 const LOANS = [
-  { student: "2023-01482", tag: "CSD-LT-001", start: at(-20), end: at(28), purpose: "Thesis coding" },
-  { student: "2023-01482", tag: "CSD-LT-003", start: at(96), end: at(120), purpose: "Capstone demo" },
-  { student: "2023-01482", tag: "CSD-LT-002", start: at(-400), end: at(-380), purpose: "Programming exam", returned: true },
-  { student: "2022-00891", tag: "CSD-LT-002", start: at(-5), end: at(30), purpose: "Research" },
-  { student: "2022-00891", tag: "CSD-LT-005", start: at(-72), end: at(-24), purpose: "Hackathon", returned: true },
-  { student: "2024-00312", tag: "CSD-LT-006", start: at(-96), end: at(-48), purpose: "Lab work", returned: true },
-  { student: "2024-00312", tag: "CSD-LT-005", start: at(-100), end: at(-4), purpose: "Missed return" },
+  { student: "2023-01482", tag: "CSD-LT-001", start: classDay(0, 9), end: classDay(0, 16), purpose: "Thesis coding" },
+  { student: "2023-01482", tag: "CSD-LT-003", start: classDay(1, 9), end: classDay(1, 14), purpose: "Capstone demo" },
+  { student: "2023-01482", tag: "CSD-LT-002", start: classDay(-2, 9), end: classDay(-2, 12), purpose: "Programming exam", returned: true },
+  { student: "2022-00891", tag: "CSD-LT-002", start: classDay(0, 9), end: classDay(0, 16), purpose: "Research" },
+  { student: "2022-00891", tag: "CSD-LT-005", start: classDay(-3, 9), end: classDay(-3, 12), purpose: "Hackathon", returned: true },
+  { student: "2024-00312", tag: "CSD-LT-006", start: classDay(-4, 9), end: classDay(-4, 12), purpose: "Lab work", returned: true },
+  { student: "2024-00312", tag: "CSD-LT-005", start: classDay(-1, 9), end: classDay(-1, 16), purpose: "Missed return" },
+  { student: "2023-01482", tag: "CSD-LT-006", start: classDay(0, 13), end: classDay(0, 16), purpose: "Robotics club", approved: false },
 ];
 
 (async () => {
@@ -128,6 +136,12 @@ const LOANS = [
       await Laptop.updateOne({ tag: laptop.tag }, { $set: laptop }, { upsert: true });
     }
 
+    await Setting.updateOne(
+      { _id: "system" },
+      { $setOnInsert: { maxActiveLoans: 2 } },
+      { upsert: true }
+    );
+
     if ((await Loan.countDocuments()) === 0) {
       const users = await User.find({ role: "student" });
       const laptops = await Laptop.find();
@@ -141,6 +155,7 @@ const LOANS = [
           start: l.start,
           end: l.end,
           purpose: l.purpose,
+          approved: l.approved !== false,
           returned: Boolean(l.returned),
         }))
       );

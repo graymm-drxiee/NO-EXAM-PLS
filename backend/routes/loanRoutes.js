@@ -7,5 +7,6 @@ const router = express.Router();
 router.get("/", optionalAuth, loanController.list);
 router.post("/", auth, allow("student"), loanController.create);
 router.patch("/:id/cancel", auth, allow("student"), loanController.cancel);
+router.patch("/:id/return", auth, allow("student"), loanController.returnLoan);
 
 module.exports = router;

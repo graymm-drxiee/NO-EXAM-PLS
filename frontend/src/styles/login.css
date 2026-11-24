@@ -1,0 +1,419 @@
+/* ==================================================================
+   CSD auth page — sign in / create account
+   Uses the landing .lp tokens in dark mode.
+   ================================================================== */
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--lp-bg);
+  overflow-x: clip;
+}
+
+.auth-glow {
+  position: fixed;
+  z-index: 0;
+  top: -30%;
+  left: 35%;
+  width: 720px;
+  height: 720px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--lp-accent) 0%, transparent 62%);
+  opacity: 0.1;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+/* ---------- Top bar ---------- */
+.auth-top {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 32px;
+}
+
+.auth-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--lp-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.auth-back-link:hover {
+  color: var(--lp-accent);
+}
+
+.auth-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+/* ---------- Two-column body ---------- */
+.auth-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  align-items: safe center;
+  gap: clamp(32px, 5vw, 72px);
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 8px 32px 40px;
+}
+
+.auth-side {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2.4vw, 26px);
+  min-width: 0;
+}
+
+.auth-copy {
+  max-width: 560px;
+}
+
+.auth-title {
+  margin: 18px 0 16px;
+  color: var(--lp-text);
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: clamp(44px, 5.6vw, 80px);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+}
+
+.auth-title span {
+  display: block;
+  color: var(--lp-accent);
+}
+
+.auth-lead {
+  max-width: 470px;
+  color: var(--lp-muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.auth-stage {
+  width: 100%;
+  max-width: 560px;
+  margin: -8px auto 0;
+}
+
+.auth-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-points li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid var(--lp-line);
+  border-radius: 999px;
+  background: var(--lp-surface);
+  color: var(--lp-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.auth-points svg {
+  color: var(--lp-accent);
+}
+
+/* ---------- Form panel ---------- */
+.auth-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-self: end;
+  width: 100%;
+  max-width: 520px;
+}
+
+.auth-panel {
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid var(--lp-line);
+  border-radius: 26px;
+  background: var(--lp-surface);
+  box-shadow: var(--lp-shadow);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 26px;
+  padding: 4px;
+  border: 1px solid var(--lp-line);
+  border-radius: 999px;
+  background: var(--lp-surface-2);
+}
+
+.auth-tabs button {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--lp-muted);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.auth-tabs button:hover {
+  color: var(--lp-text);
+}
+
+.auth-tabs button.is-active {
+  background: var(--lp-accent);
+  color: var(--lp-on-accent);
+  box-shadow: 0 10px 22px -14px var(--lp-accent);
+}
+
+/* The panel height is measured from the active view and animated so the
+   card's centered placement holds while the two forms swap. */
+.auth-tabpanel {
+  overflow: hidden;
+  transition: height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-tabpanel-inner {
+  padding-bottom: 6px;
+  animation: auth-panel-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes auth-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.auth-head {
+  margin-bottom: 22px;
+}
+
+.auth-form-title {
+  color: var(--lp-text);
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.auth-form-sub {
+  margin-top: 6px;
+  color: var(--lp-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-pw {
+  position: relative;
+}
+
+.auth-pw .lpf-input {
+  padding-right: 46px;
+}
+
+.auth-eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lp-dim);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.auth-eye:hover {
+  background: var(--lp-surface-2);
+  color: var(--lp-text);
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.auth-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+}
+
+.auth-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.auth-legal {
+  margin: 0;
+  color: var(--lp-dim);
+  font-size: 11.5px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.auth-legal button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lp-accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth-legal button:hover {
+  color: var(--lp-accent-hover);
+}
+
+/* SignupForm supplies its own card on the landing page; inside the
+   auth panel it becomes the panel body. */
+.auth-panel .lpf-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.auth-panel .lpf-head {
+  margin-bottom: 22px;
+}
+
+.auth-panel .lpf-head-icon {
+  display: none;
+}
+
+.auth-panel .lpf-title {
+  font-family: "Bebas Neue", Impact, sans-serif;
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.auth-panel .lpf-sub {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.auth-panel .lpf-success {
+  padding: 8px 0 0;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1023px) {
+  .auth-body {
+    grid-template-columns: 1fr;
+    align-items: safe center;
+    max-width: 620px;
+    padding: 8px 20px 32px;
+  }
+  .auth-side {
+    display: none;
+  }
+  .auth-main {
+    justify-self: stretch;
+    max-width: none;
+  }
+  .auth-top {
+    padding: 16px 20px;
+  }
+}
+
+@media (max-width: 639px) {
+  .auth-top {
+    padding: 14px 16px;
+  }
+  .auth-body {
+    padding: 4px 14px 28px;
+  }
+  .auth-panel {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+  .auth-form-title {
+    font-size: 36px;
+  }
+  .auth-tabs button {
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+  .auth-back-link {
+    padding: 6px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-tabpanel {
+    transition: none;
+  }
+  .auth-tabpanel-inner {
+    animation: none;
+  }
+}

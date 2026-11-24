@@ -1,99 +1,142 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
+import Landing from "./pages/Landing";
+import Login from "./pages/Login";
+import StudentDashboard from "./pages/StudentDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const SESSION_KEY = "csd_session";
 
+/* ----------------------------- session storage ----------------------------- */
 function readSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY)) || null;
+    const raw = localStorage.getItem(SESSION_KEY);
+    const session = raw ? JSON.parse(raw) : null;
+    if (!session?.token || !["student", "admin"].includes(session.role)) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return session;
   } catch {
     return null;
   }
 }
 
-function SignIn({ onSignedIn }) {
-  const [role, setRole] = useState("student");
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  async function submit(event) {
-    event.preventDefault();
-    setError("");
-    try {
-      const session = await api.login({ role, identifier, password });
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      onSignedIn(session);
-    } catch (requestError) {
-      setError(requestError.message);
-    }
-  }
-
-  return (
-    <form className="card sign-in" onSubmit={submit}>
-      <p className="eyebrow">ACCOUNT ACCESS</p>
-      <h1>Sign in</h1>
-      <label>Account type
-        <select value={role} onChange={(event) => setRole(event.target.value)}>
-          <option value="student">Student</option>
-          <option value="admin">Administrator</option>
-        </select>
-      </label>
-      <label>{role === "admin" ? "Username" : "Student ID"}
-        <input required value={identifier} onChange={(event) => setIdentifier(event.target.value)} />
-      </label>
-      <label>Password
-        <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-      </label>
-      {error && <p className="error" role="alert">{error}</p>}
-      <button className="button">Continue</button>
-    </form>
-  );
+function saveSession(session) {
+  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(SESSION_KEY);
 }
 
-function Dashboard({ session, onSignOut }) {
-  const [laptops, setLaptops] = useState([]);
-  const [loans, setLoans] = useState([]);
-  const [error, setError] = useState("");
+/* ----------------------------- route reader ----------------------------- */
+const KNOWN_ROUTES = ["login", "signup", "dashboard", "admin"];
 
-  useEffect(() => {
-    Promise.all([api.getLaptops(), api.getLoans(session.role)])
-      .then(([fleet, reservations]) => {
-        setLaptops(fleet);
-        setLoans(reservations);
-      })
-      .catch((requestError) => setError(requestError.message));
-  }, [session.role]);
+// The landing page doubles as an anchor page; these hashes are sections of
+// it, not routes. Everything else unknown still gets the 404 screen.
+const CONTENT_ANCHORS = ["home", "main", "how", "fleet", "faq"];
 
-  return (
-    <main className="page">
-      <header className="topbar">
-        <a className="brand" href="#">CSD / PORTAL</a>
-        <button className="text-button" onClick={onSignOut}>Sign out</button>
-      </header>
-      <section className="intro compact">
-        <p className="eyebrow">{session.role === "admin" ? "ADMINISTRATOR" : "STUDENT"} PORTAL</p>
-        <h1>{session.user?.name || "Welcome"}</h1>
-        <p>{session.role === "admin" ? "Manage the department fleet and reservations." : "Review fleet availability and your reservations."}</p>
-      </section>
-      {error && <p className="error" role="alert">{error}</p>}
-      <section className="grid">
-        <article className="card"><p className="eyebrow">FLEET</p><strong>{laptops.length}</strong><p>laptops</p></article>
-        <article className="card"><p className="eyebrow">RESERVATIONS</p><strong>{loans.length}</strong><p>{session.role === "admin" ? "all student loans" : "your loans"}</p></article>
-      </section>
-    </main>
-  );
+function readRoute() {
+  const hash = window.location.hash.replace("#", "").toLowerCase();
+  if (!hash) return "landing";
+  if (CONTENT_ANCHORS.includes(hash)) return "landing";
+  return KNOWN_ROUTES.includes(hash) ? hash : "notfound";
 }
 
+/* ----------------------------- app ----------------------------- */
 export default function App() {
+  const [page, setPage] = useState(readRoute);
   const [session, setSession] = useState(readSession);
 
-  function signOut() {
-    localStorage.removeItem(SESSION_KEY);
+  // keep hash and state in sync
+  useEffect(() => {
+    const onHash = () => setPage(readRoute());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  // route guards — bounce unauthorised visitors to the login screen
+  useEffect(() => {
+    if (page === "dashboard" && session?.role !== "student") {
+      window.location.hash = "#login";
+    } else if (page === "admin" && session?.role !== "admin") {
+      window.location.hash = "#login";
+    }
+  }, [page, session]);
+
+  // An expired token from any request drops the session and returns to login.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setSession(null);
+      saveSession(null);
+      if (["dashboard", "admin"].includes(readRoute())) window.location.hash = "#login";
+    };
+    window.addEventListener("csd:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("csd:unauthorized", onUnauthorized);
+  }, []);
+
+  /* ----------------------------- navigation ----------------------------- */
+  const go = (next) => {
+    const hash = next === "landing" ? "" : `#${next}`;
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setPage(next);
+  };
+
+  const handleLogin = (newSession) => {
+    setSession(newSession);
+    saveSession(newSession);
+    go(newSession.role === "admin" ? "admin" : "dashboard");
+  };
+
+  const handleLogout = () => {
     setSession(null);
+    saveSession(null);
+    go("landing");
+  };
+
+  // Leaving the portal keeps the session; the landing page then offers "My dashboard".
+  const handleBackToSite = () => go("landing");
+
+  /* ----------------------------- render ----------------------------- */
+  if (page === "notfound") {
+    return (
+      <main className="csd" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24 }}>
+        <div style={{ textAlign: "center" }}>
+          <h1 className="csd-display" style={{ fontSize: 32 }}>Page not found</h1>
+          <p className="csd-dim" style={{ margin: "8px 0 20px" }}>
+            That page doesn&apos;t exist. Head back to the home page.
+          </p>
+          <button className="csd-pill" onClick={() => go("landing")}>Back to home</button>
+        </div>
+      </main>
+    );
   }
 
-  return session
-    ? <Dashboard session={session} onSignOut={signOut} />
-    : <main className="page"><header className="topbar"><a className="brand" href="#">CSD / LAPTOPS</a></header><SignIn onSignedIn={setSession} /></main>;
+  if (page === "login" || page === "signup") {
+    return (
+      <Login
+        onSuccess={handleLogin}
+        onCancel={() => go("landing")}
+        initialMode={page === "signup" ? "signup" : "login"}
+      />
+    );
+  }
+
+  if (page === "dashboard") {
+    if (session?.role !== "student") return null; // guard effect will redirect
+    return <StudentDashboard session={session} onExit={handleLogout} onBack={handleBackToSite} />;
+  }
+
+  if (page === "admin") {
+    if (session?.role !== "admin") return null;
+    return <AdminDashboard session={session} onExit={handleLogout} onBack={handleBackToSite} />;
+  }
+
+  return (
+    <Landing
+      onEnter={(maybeSession) => {
+        // Landing's "Log in" button calls onEnter() with no args → go to login.
+        // SignupForm (File 6) will call onEnter(session) to auto-login.
+        if (maybeSession) handleLogin(maybeSession);
+        else go("login");
+      }}
+    />
+  );
 }

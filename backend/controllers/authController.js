@@ -25,9 +25,20 @@ function normalizeStudentNo(value) {
   return String(value || "").trim().replace(/-/g, "");
 }
 
-function validateRegistration(body) {
+// Shared by registration, password changes, and admin resets.
+function readNewPassword(value) {
+  const password = String(value || "");
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw badRequest(`Choose a password with at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    throw badRequest("Password must be no more than 72 bytes.");
+  }
+  return password;
+}
+
+function readProfile(body, { requireStudentNo = false } = {}) {
   body = body || {};
-  const password = String(body.password || "");
   const name = String(body.name || "").trim();
   const address = String(body.address || "").trim();
   const contact = String(body.contact || "").replace(/[\s-]/g, "");
@@ -39,30 +50,28 @@ function validateRegistration(body) {
   if (name.length < 3) throw badRequest("Enter your full name.");
   if (address.length < 5) throw badRequest("Enter your complete address.");
   if (!CONTACT_RE.test(contact)) throw badRequest("Use a valid mobile number, e.g. 0917 123 4567.");
-  if (!/^\d{9}$/.test(studentNoDigits)) throw badRequest("Use the format 2023-01482.");
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw badRequest(`Choose a password with at least ${MIN_PASSWORD_LENGTH} characters.`);
-  }
-  if (Buffer.byteLength(password, "utf8") > 72) {
-    throw badRequest("Password must be no more than 72 bytes.");
-  }
-  if (body.termsAccepted !== true) {
-    throw badRequest("Accept the Terms & Conditions and Privacy Policy to register.");
+  if (requireStudentNo && !/^\d{9}$/.test(studentNoDigits)) {
+    throw badRequest("Use the format 2023-01482.");
   }
   if (!PROGRAMS.includes(program)) throw badRequest("Choose your program.");
   if (!YEARS.includes(year)) throw badRequest("Choose your year level.");
   if (!BLOCKS.includes(block)) throw badRequest("Choose your block.");
 
-  return {
-    password,
-    name,
-    address,
-    contact,
-    studentNo: `${studentNoDigits.slice(0, 4)}-${studentNoDigits.slice(4)}`,
-    program,
-    year,
-    block,
-  };
+  const profile = { name, address, contact, program, year, block };
+  if (requireStudentNo) profile.studentNo = `${studentNoDigits.slice(0, 4)}-${studentNoDigits.slice(4)}`;
+  return profile;
+}
+
+function validateRegistration(body) {
+  body = body || {};
+  const password = readNewPassword(body.password);
+  const profile = readProfile(body, { requireStudentNo: true });
+
+  if (body.termsAccepted !== true) {
+    throw badRequest("Accept the Terms & Conditions and Privacy Policy to register.");
+  }
+
+  return { ...profile, password };
 }
 
 // POST /api/auth/register
@@ -102,6 +111,7 @@ exports.login = async (req, res) => {
     const admin = await User.findOne({ username: identifier.toLowerCase(), role: "admin" });
     const valid = admin && (await bcrypt.compare(password, admin.password));
     if (!valid) throw badRequest("Invalid admin credentials.");
+    if (!admin.active) throw badRequest("This account is disabled. Contact the CSD office.");
 
     return res.json({
       message: "Login successful",
@@ -126,5 +136,37 @@ exports.login = async (req, res) => {
 
 // GET /api/auth/me
 exports.me = async (req, res) => {
+  res.json(req.user.toJSON());
+};
+
+exports.readProfile = readProfile;
+exports.readNewPassword = readNewPassword;
+exports.MIN_PASSWORD_LENGTH = MIN_PASSWORD_LENGTH;
+
+// PATCH /api/auth/password — any signed-in user changes their own password.
+exports.changePassword = async (req, res) => {
+  const currentPassword = String(req.body?.currentPassword || "");
+  const newPassword = readNewPassword(req.body?.newPassword);
+
+  if (!(await bcrypt.compare(currentPassword, req.user.password))) {
+    throw badRequest("Your current password is incorrect.");
+  }
+  if (currentPassword === newPassword) {
+    throw badRequest("Choose a password different from your current one.");
+  }
+
+  req.user.password = await bcrypt.hash(newPassword, 10);
+  await req.user.save();
+  res.json({ ok: true });
+};
+
+// PATCH /api/auth/me — students edit their own profile (student number stays fixed).
+exports.updateMe = async (req, res) => {
+  if (req.user.role !== "student") {
+    throw badRequest("Only student profiles can be edited here.");
+  }
+
+  Object.assign(req.user, readProfile(req.body));
+  await req.user.save();
   res.json(req.user.toJSON());
 };

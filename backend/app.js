@@ -3,6 +3,8 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const authRoutes = require("./routes/authRoutes");
 const laptopRoutes = require("./routes/laptopRoutes");
@@ -11,6 +13,9 @@ const adminRoutes = require("./routes/adminRoutes");
 
 function createApp() {
   const app = express();
+
+  // Required for correct client IPs (and rate limiting) behind a proxy.
+  if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 
   const allowedOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173")
     .split(",")
@@ -22,13 +27,35 @@ function createApp() {
       origin: (origin, callback) =>
         !origin || allowedOrigins.includes(origin)
           ? callback(null, true)
-          : callback(new Error("Origin not allowed by CORS")),
+          : callback(Object.assign(new Error("Origin not allowed by CORS"), { status: 403 })),
       credentials: true,
       allowedHeaders: ["Content-Type", "Authorization"],
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     })
   );
   app.use(express.json({ limit: "100kb" }));
+
+  // Security headers for the API responses.
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  // Basic abuse protection: a generous cap for the API, a tight one for login.
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 300,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { message: "Too many requests. Please slow down." },
+  });
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { message: "Too many login attempts. Try again in 15 minutes." },
+  });
+  app.use("/api", apiLimiter);
+  app.use("/api/auth/login", loginLimiter);
 
   // Minimal request log. Skipped under test to keep the output readable.
   if (process.env.NODE_ENV !== "test") {

@@ -8,6 +8,8 @@ const laptopSchema = new mongoose.Schema(
     ram: { type: String, required: true, trim: true },
     storage: { type: String, required: true, trim: true },
     maintenance: { type: Boolean, default: false },
+    maintenanceNote: { type: String, trim: true, maxlength: 200, default: "" },
+    maintenanceUpdatedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
   },
   { versionKey: false }
